@@ -26,7 +26,7 @@ GTK4 と ffmpeg を同梱しています（GPU ドライバと glibc はホス�
 ## 必要なもの
 
 ビルド時:
-- Rust（1.85+）、GTK4 開発ヘッダ（4.10 以上、Fedora なら `gtk4-devel`）
+- Rust（1.85+）、GTK4 開発ヘッダ（4.20 以上、Fedora なら `gtk4-devel`）
 - ffmpeg 開発ヘッダ（`pkg-config libavcodec` が通ること。Fedora は `ffmpeg-free-devel`）
 - scrcpy 5.0.1 の `scrcpy-server`（既定 `/usr/share/scrcpy/scrcpy-server`。`SCRCPY_SERVER_JAR` で変更可）
 - `scrcpy --version` と jar の版数は一致させてください（このクライアントは 5.0.1 のプロトコルに固定）

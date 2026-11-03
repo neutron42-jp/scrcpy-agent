@@ -30,6 +30,9 @@ struct Cli {
     /// adb executable to use.
     #[arg(long)]
     adb: Option<String>,
+    /// Start the MCP server together with the window.
+    #[arg(long)]
+    start_mcp: bool,
     /// Log level for stderr (error, warn, info, debug, trace).
     #[arg(long, default_value = "info")]
     log_level: String,
@@ -52,6 +55,12 @@ fn main() -> Result<()> {
     }
 
     let state = AppState::new(config);
+
+    if cli.start_mcp && !cli.headless {
+        if let Err(err) = state.start_mcp() {
+            eprintln!("could not start the MCP server: {err:#}");
+        }
+    }
 
     if cli.headless {
         return run_headless(state, cli.serial);

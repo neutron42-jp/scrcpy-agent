@@ -4,6 +4,7 @@
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex, RwLock};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 
@@ -20,6 +21,11 @@ pub enum UiEvent {
         name: String,
         ok: bool,
         detail: String,
+    },
+    Stats {
+        battery: Option<u32>,
+        charging: bool,
+        app: Option<String>,
     },
 }
 
@@ -186,6 +192,52 @@ impl AppState {
             }
         }
         self.emit(UiEvent::McpChanged);
+    }
+
+    /// Reads battery and foreground app in the background and emits a Stats
+    /// event. Safe to call repeatedly (the UI polls it every few seconds).
+    pub fn refresh_stats(self: &Arc<Self>) {
+        let Some(session) = self.session() else {
+            return;
+        };
+        let serial = session.serial.clone();
+        let adb = self.adb.clone();
+        let state = Arc::clone(self);
+        std::thread::spawn(move || {
+            let battery_out = adb
+                .shell_stdout(&serial, "dumpsys battery", Duration::from_secs(3))
+                .unwrap_or_default();
+            let level = battery_out.lines().find_map(|line| {
+                line.trim()
+                    .strip_prefix("level:")
+                    .and_then(|value| value.trim().parse::<u32>().ok())
+            });
+            let status = battery_out.lines().find_map(|line| {
+                line.trim()
+                    .strip_prefix("status:")
+                    .and_then(|value| value.trim().parse::<u32>().ok())
+            });
+            let charging = matches!(status, Some(2) | Some(5));
+
+            let app_out = adb
+                .shell_stdout(
+                    &serial,
+                    "dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'",
+                    Duration::from_secs(3),
+                )
+                .unwrap_or_default();
+            let app = app_out
+                .split_whitespace()
+                .find(|token| token.contains('/'))
+                .and_then(|token| token.split('/').next())
+                .map(str::to_string);
+
+            state.emit(UiEvent::Stats {
+                battery: level,
+                charging,
+                app,
+            });
+        });
     }
 
     pub fn notify_tool_call(&self, name: &str, ok: bool, detail: &str) {
