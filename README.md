@@ -72,7 +72,7 @@ MCP サーバーはアプリで起動ボタンを押すまで待ち受けませ�
 | `screenshot` | 現在の画面 PNG＋`width`/`height`（座標系はこの画像のピクセル） |
 | `screen_info` / `current_app` | 解像度・密度・前面アプリ |
 | `tap` / `double_tap` / `long_press` / `swipe` / `drag` / `scroll` | ジェスチャ |
-| `type_text` | ASCII はキーイベント、非 ASCII はクリップボード経由でペースト |
+| `type_text` | 既定でクリップボード経由のペースト（IME の影響を受けない）。`mode:"key"` で生キーイベント |
 | `press_key` / `back` / `rotate` / `notifications` / `wake` | キー・システム操作 |
 | `clipboard_get` / `clipboard_set` | 端末クリップボード |
 | `launch_app` / `list_apps` | パッケージ操作 |
@@ -126,6 +126,8 @@ settle_ms = 120
 ## 制限・既知の注意
 
 - scrcpy-server は **5.0.1 固定**。別版の jar を使う場合は `SCRCPY_SERVER_JAR` と `SCRCPY_SERVER_VERSION` を両方合わせてください
+- `type_text` は既定でクリップボード経由のペースト（日本語 IME でも安全）。`mode:"key"` は生キーイベントで、IME に合成されます
+- `clipboard_get` は Android 10 以降のクリップボード制限で空を返すことがあります
 - `FLAG_SECURE` の画面や画面オフ時は真っ黒なスクショになります
 - マルチタッチ（ピンチ）は未対応（1 ポインタのみ）
 - 音声転送は未対応

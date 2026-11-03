@@ -218,11 +218,11 @@ pub fn definitions() -> Value {
         ),
         tool(
             "type_text",
-            "Type text into the focused field. ASCII uses key events; other scripts go through the device clipboard and a paste key event (the soft keyboard may appear).",
+            "Type text into the focused field. By default the text is pasted through the device clipboard, which is IME-safe; mode=key injects raw key events (an active IME may compose them).",
             schema(
                 json!({
                     "text": {"type": "string"},
-                    "mode": {"type": "string", "enum": ["auto", "key", "clipboard"], "description": "auto (default) picks clipboard for non-ASCII"},
+                    "mode": {"type": "string", "enum": ["auto", "key", "clipboard"], "description": "auto (default) pastes through the clipboard; key injects key events"},
                     "settle_ms": {"type": "integer", "minimum": 0}
                 }),
                 json!(["text"]),

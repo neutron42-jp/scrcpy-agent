@@ -42,9 +42,9 @@ const SUPPORTED_PROTOCOLS: &[&str] = &["2026-07-28", "2025-11-25", "2025-06-18",
 const INSTRUCTIONS: &str = "Controls the Android device selected in the scrcpy-agent app. \
 Screenshots return the current screen; every coordinate argument is a pixel in \
 that screenshot's coordinate space (width and height accompany each image). \
-Take a screenshot after each action to confirm the result. type_text uses the \
-device keyboard: ASCII through key events, other scripts through the device \
-clipboard and a paste key event.";
+Take a screenshot after each action to confirm the result. type_text pastes \
+through the device clipboard by default, which is safe with any IME; pass \
+mode=key to inject raw key events instead.";
 
 pub async fn serve(
     listener: tokio::net::TcpListener,

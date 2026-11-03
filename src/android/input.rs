@@ -257,12 +257,14 @@ impl Session {
         let dims = self.require_dims()?;
         let before = self.frames().seq();
         let started = Instant::now();
-        let is_ascii = text.is_ascii();
 
+        // Android IMEs compose key events, so a kana IME turns injected ASCII
+        // into garbage. Paste through the clipboard by default; mode=key stays
+        // available for raw key events.
         let clipboard_mode = match mode {
             TextMode::Clipboard => true,
             TextMode::Key => false,
-            TextMode::Auto => !is_ascii,
+            TextMode::Auto => true,
         };
 
         if clipboard_mode {
