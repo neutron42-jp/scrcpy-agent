@@ -13,6 +13,16 @@ Electron / WebView は使いません。画面は scrcpy の H.264 ストリー�
 - 単一ファイル AppImage をビルド可能（`scripts/build-appimage.sh`）
 - GUI なしの `--headless` モードあり
 
+## インストール（AppImage）
+
+```bash
+curl -L -o scrcpy-agent.AppImage   https://github.com/neutron42-jp/scrcpy-agent/releases/latest/download/scrcpy-agent-x86_64.AppImage
+chmod +x scrcpy-agent.AppImage
+./scrcpy-agent.AppImage
+```
+
+GTK4 と ffmpeg を同梱しています（GPU ドライバと glibc はホストのもの）。adb と USB デバッグ有効な端末は別途必要です。
+
 ## 必要なもの
 
 ビルド時:
