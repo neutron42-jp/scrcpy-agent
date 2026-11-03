@@ -154,6 +154,26 @@ pub struct Handshake {
     pub codec_id: u32,
 }
 
+/// Cleans up a half-started session: kills the adb shell child and removes the
+/// tunnel mapping unless ownership was transferred to a live Session.
+#[derive(Default)]
+struct SetupGuard {
+    child: Option<Child>,
+    cleanup: Vec<Box<dyn FnOnce() + Send>>,
+}
+
+impl Drop for SetupGuard {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        for cleanup in self.cleanup.drain(..) {
+            cleanup();
+        }
+    }
+}
+
 impl Session {
     pub fn start(
         serial: String,
@@ -171,27 +191,31 @@ impl Session {
             );
         }
 
+        let jar_path = ensure_local_jar()?;
         let listener = TcpListener::bind(("127.0.0.1", 0)).context("bind local tunnel port")?;
         listener.set_nonblocking(true)?;
         let port = listener.local_addr()?.port();
         let scid = random_scid();
         let socket_name = format!("scrcpy_{scid:08x}");
 
-        let mut cleanup: Vec<Box<dyn FnOnce() + Send>> = Vec::new();
+        // Anything below may fail half-way (push, server start, handshake). The
+        // guard removes the tunnel mapping and kills the server shell on every
+        // early return.
+        let mut guard = SetupGuard::default();
         let mut listener = Some(listener);
         let mut tunnel_forward = false;
         let mut forward_port = port;
 
         match adb.reverse(&serial, &socket_name, port) {
             Ok(()) => {
-                let adb = adb.clone();
-                let serial = serial.clone();
                 log(
                     LogLevel::Debug,
                     format!("reverse tunnel localabstract:{socket_name} -> tcp:{port}"),
                 );
+                let adb = adb.clone();
+                let serial = serial.clone();
                 let socket_name = socket_name.clone();
-                cleanup.push(Box::new(move || {
+                guard.cleanup.push(Box::new(move || {
                     let _ = adb.reverse_remove(&serial, &socket_name);
                 }));
             }
@@ -206,7 +230,7 @@ impl Session {
                     .context("set up adb forward tunnel")?;
                 let adb = adb.clone();
                 let serial = serial.clone();
-                cleanup.push(Box::new(move || {
+                guard.cleanup.push(Box::new(move || {
                     let _ = adb.forward_remove(&serial, forward_port);
                 }));
                 tunnel_forward = true;
@@ -214,7 +238,6 @@ impl Session {
         }
 
         let remote_jar = remote_jar_path();
-        let jar_path = ensure_local_jar()?;
         let already_pushed = adb
             .shell_stdout(
                 &serial,
@@ -239,40 +262,26 @@ impl Session {
         if let Some(stderr) = child.stderr.take() {
             log_threads.push(spawn_line_logger(stderr, LogLevel::Warn, log.clone()));
         }
+        guard.child = Some(child);
 
         let handshake = if tunnel_forward {
-            handshake_forward(forward_port, HANDSHAKE_TIMEOUT)
+            handshake_forward(forward_port, HANDSHAKE_TIMEOUT)?
         } else {
             handshake_reverse(
                 listener.as_ref().expect("reverse listener"),
                 HANDSHAKE_TIMEOUT,
-            )
-        };
-
-        let handshake = match handshake {
-            Ok(handshake) => handshake,
-            Err(err) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                for cleanup in cleanup.into_iter() {
-                    cleanup();
-                }
-                return Err(err);
-            }
+            )?
         };
 
         if handshake.codec_id != CODEC_H264 {
-            let _ = child.kill();
-            let _ = child.wait();
-            for cleanup in cleanup.into_iter() {
-                cleanup();
-            }
             bail!(
                 "device selected unsupported codec {} (expected h264)",
                 packet::codec_name(handshake.codec_id)
             );
         }
 
+        let child = guard.child.take();
+        let cleanup = std::mem::take(&mut guard.cleanup);
         let session = attach(
             serial,
             handshake.device_name,
@@ -280,7 +289,7 @@ impl Session {
             handshake.control,
             options,
             log,
-            Some(child),
+            child,
             cleanup,
         )?;
         session.threads.lock().unwrap().extend(log_threads);
@@ -445,6 +454,7 @@ pub fn attach(
     child: Option<Child>,
     cleanup: Vec<Box<dyn FnOnce() + Send>>,
 ) -> Result<Arc<Session>> {
+    let mut guard = SetupGuard { child, cleanup };
     let control_read = control.try_clone().context("clone control socket")?;
     let shutdown_video = video.try_clone().context("clone video socket")?;
     let shutdown_control = control.try_clone().context("clone control socket")?;
@@ -472,8 +482,8 @@ pub fn attach(
         log: log.clone(),
         stop: stop.clone(),
         shutdown_streams: Mutex::new(vec![shutdown_video, shutdown_control]),
-        child: Mutex::new(child),
-        cleanup: Mutex::new(cleanup),
+        child: Mutex::new(guard.child.take()),
+        cleanup: Mutex::new(std::mem::take(&mut guard.cleanup)),
         threads: Mutex::new(Vec::new()),
         pending_clipboard: AtomicU64::new(0),
     });
