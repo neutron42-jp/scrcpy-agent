@@ -1,0 +1,40 @@
+[package]
+name = "scrcpy-agent"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Android device control MCP server with a native GTK4 UI, backed by scrcpy"
+license = "MIT"
+
+[lib]
+name = "scrcpy_agent"
+path = "src/lib.rs"
+
+[[bin]]
+name = "scrcpy-agent"
+path = "src/main.rs"
+
+[features]
+default = ["gui"]
+gui = ["dep:gtk4"]
+
+[dependencies]
+anyhow = "1"
+arc-swap = "1.7"
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+dirs = "6"
+env_logger = "0.11"
+ffmpeg = { package = "ffmpeg-next", version = "8.1" }
+gtk4 = { version = "0.11", optional = true, features = ["v4_10"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+signal-hook = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = "3"

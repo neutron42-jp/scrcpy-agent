@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=scrcpy-agent
+Comment=Android device control for agents, backed by scrcpy
+Exec=scrcpy-agent
+Icon=scrcpy-agent
+Terminal=false
+Categories=Development;Utility;
+Keywords=android;adb;scrcpy;mcp;
